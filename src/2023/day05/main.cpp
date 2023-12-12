@@ -3,36 +3,13 @@
 #include <string>
 #include <ranges>
 #include <algorithm>
-#include <iostream>
 
-struct mapped_range { uint64_t src, dst, length; };
-using almanac_map = std::vector<mapped_range>;
-
-uint64_t find_dst(std::string_view view, uint64_t src) {
-    for (auto&& rng: view | std::views::split('\n') | std::views::drop(1)) {
-        std::string_view row(rng);
-        if (rng.empty()) continue;
-
-        auto numbers =
-            row
-            | std::views::split(' ')
-            | std::views::transform([](auto&& rng) -> uint64_t { return std::stoull(std::data(rng)); })
-            | std::ranges::to<std::vector>();
-
-        auto i_dst = numbers[0];
-        auto i_src = numbers[1];
-        auto i_len = numbers[2];
-
-        if (i_src <= src && src < i_src + i_len) {
-            return i_dst + src - i_src;
-        }
-    }
-
-    return src;
-}
+struct seed_range { uint64_t src, length; };
+struct almanac_range { uint64_t src, dst, length; };
+using almanac_map = std::vector<almanac_range>;
 
 auto parse_almanac_map(std::string_view view) {
-    almanac_map ranges;
+    almanac_map parsed_ranges;
 
     for (auto&& rng : view | std::views::split('\n') | std::views::drop(1)) {
         if (rng.empty()) break;
@@ -42,23 +19,63 @@ auto parse_almanac_map(std::string_view view) {
             | std::views::transform([](auto&& rng) -> uint64_t { return std::stoull(std::data(rng)); })
             | std::ranges::to<std::vector>();
 
-        ranges.push_back({
+        parsed_ranges.push_back({
             .src = numbers[1],
             .dst = numbers[0],
             .length = numbers[2]
         });
     }
 
+    std::ranges::sort(parsed_ranges, [](auto& a, auto& b) { return a.src < b.src; });
+    return parsed_ranges;
+}
+
+auto fill_almanac_ranges(const almanac_map& parsed_ranges) {
+    almanac_map ranges;
+    uint64_t src = 0;
+    for (const auto& range : parsed_ranges) {
+        if (src != range.src)
+            ranges.push_back({ .src = 0, .dst = 0, .length = range.src });
+        ranges.push_back(range);
+        src = range.src + range.length;
+    }
+    ranges.push_back({ .src = src, .dst = src, .length = UINT64_MAX - src });
     return ranges;
 }
 
-auto map_src_to_dst(uint64_t src, const almanac_map& map) {
+auto map_seed(uint64_t src, const almanac_map& map) {
     for (auto& range : map)
     {
         if (range.src <= src && src < range.src + range.length)
-            return range.dst + src - range.src;
+            return src + (range.dst - range.src);
     }
     return src;
+}
+
+auto map_range(const std::vector<seed_range>& src_ranges, const almanac_map& map) {
+    std::vector<seed_range> dst_ranges;
+
+    for (const seed_range& s : src_ranges) {
+        // Find first range, that s intersects
+        auto it = std::ranges::find_if(map, [s](const almanac_range& m) -> bool {
+            return m.src <= s.src && s.src < m.src + m.length;
+        });
+
+        auto src = s.src;
+        auto len = s.length;
+        while (src < s.src + s.length) {
+            auto dst_src = src + (it->dst - it->src);
+            auto dst_len = std::min(len, it->src + it->length - src);
+
+            dst_ranges.push_back({ .src = dst_src, .length = dst_len });
+
+            src += dst_len;
+            len -= dst_len;
+            ++it;
+        }
+    }
+
+    return dst_ranges;
 }
 
 int main()
@@ -76,6 +93,7 @@ int main()
 
     auto almanac = std::views::drop(split, 1)
         | std::views::transform(parse_almanac_map)
+        | std::views::transform(fill_almanac_ranges)
         | std::ranges::to<std::vector>();
 
     std::println("--- Day 5: If You Give A Seed A Fertilizer ---");
@@ -83,22 +101,19 @@ int main()
         std::ranges::fold_left(
             seeds
             | std::views::transform([&](uint64_t seed) -> uint64_t {
-                return std::ranges::fold_left(almanac, seed, map_src_to_dst);
-            }), UINT64_MAX, [](uint64_t acc, uint64_t val) -> uint64_t { return std::min(acc, val); }));
+                return std::ranges::fold_left(almanac, seed, map_seed);
+            }), UINT64_MAX, [](uint64_t a, uint64_t b) { return std::min(a, b); }));
 
-//    std::println("Part 2: {}",
-//        std::ranges::fold_left(
-//            seeds
-//            | std::views::chunk(2)
-//            | std::views::transform([&](auto rng) { return std::views::iota(rng.front(), rng.front() + rng.back()); })
-//            | std::views::join
-//              | std::views::transform([&](uint64_t seed) -> uint64_t {
-//                return std::ranges::fold_left(
-//                    split | std::views::drop(1) // Skip seeds line
-//                    , seed, [](uint64_t src, auto&& rng) -> uint64_t { return find_dst(rng, src); });
-//            })
-//            , UINT64_MAX, [](uint64_t acc, uint64_t val) -> uint64_t { return std::min(acc, val); }
-//            ));
+    auto seed_ranges = seeds
+        | std::views::chunk(2)
+        | std::views::transform([&](auto rng) { return seed_range(rng.front(), rng.back()); })
+        | std::ranges::to<std::vector>();
+
+    std::println("Part 2: {}",
+        std::ranges::fold_left(
+            std::ranges::fold_left(almanac, seed_ranges, map_range),
+            UINT64_MAX,
+            [](uint64_t a, seed_range& b) { return std::min(a, b.src); }));
 
     return 0;
 }
