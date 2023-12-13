@@ -5,9 +5,7 @@ set(CMAKE_CXX_STANDARD 23)
 
 add_library(trak INTERFACE)
 target_sources(trak INTERFACE
-        include/trak/input.h
-        include/trak/graph.h
-)
+        include/trak/input.h)
 target_include_directories(trak INTERFACE include)
 
 add_subdirectory(src/2023)
