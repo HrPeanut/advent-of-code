@@ -24,6 +24,19 @@ namespace trak {
 
         return content;
     }
+
+    template<typename T>
+    T stoi(std::string_view view) {
+        T result;
+
+        auto begin = view.data();
+        auto end = begin + view.size();
+        while (begin != end && *begin == ' ')
+            ++begin;
+
+        std::from_chars(begin, end, result);
+        return result;
+    }
 }
 
 #endif //TRAK_INPUT_H
