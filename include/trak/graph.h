@@ -6,6 +6,12 @@
 
 namespace trak {
 
+    template<typename T>
+    concept is_weighted = std::integral<T>
+        || std::floating_point<T>
+        || requires(T value) {{ value.weight() } -> std::integral; }
+        || requires(T value) {{ value.weight() } -> std::floating_point; };
+
     template<typename T, typename E = int>
     class basic_graph;
 
@@ -21,10 +27,23 @@ namespace trak {
         template<typename... Args>
         explicit basic_graph_edge(size_type to, Args&& ... args) : _to(to), _value(std::forward<Args>(args)...) {}
 
+        basic_graph_edge& operator=(const E& val) {
+            _value = val;
+            return *this;
+        }
+
+        basic_graph_edge& operator=(E&& val) {
+            _value = std::move(val);
+            return *this;
+        }
+
         [[nodiscard]] reference value() { return _value; }
         [[nodiscard]] const_reference value() const { return _value; }
 
         [[nodiscard]] size_type to() const { return _to; }
+
+        [[nodiscard]] explicit operator reference () { return _value; }
+        [[nodiscard]] explicit operator const_reference () const { return _value; }
 
     private:
         size_type _to;
@@ -46,16 +65,29 @@ namespace trak {
         using edge_list = std::vector<edge_type>;
 
         basic_graph_node() : _value() {}
-        explicit basic_graph_node(const T& val) : _value(val) {}
+        explicit basic_graph_node(const_reference val) : _value(val) {}
+
+        basic_graph_node& operator=(const T& val) {
+            _value = val;
+            return *this;
+        }
+
+        basic_graph_node& operator=(T&& val) {
+            _value = std::move(val);
+            return *this;
+        }
 
         [[nodiscard]] reference value() { return _value; }
         [[nodiscard]] const_reference value() const { return _value; }
 
         [[nodiscard]] const edge_list& edges() const { return _edges; }
 
+        [[nodiscard]] explicit operator reference () { return _value; }
+        [[nodiscard]] explicit operator const_reference () const { return _value; }
+
     protected:
         template<typename... Args>
-        void add_edge(size_type to, Args&& ... args) {
+        void add_edge(size_type to, Args&&... args) {
             _edges.emplace_back(to, std::forward<Args>(args)...);
         }
 
