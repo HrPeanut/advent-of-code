@@ -9,7 +9,7 @@ int main() {
         | std::views::filter([](auto&& rng) { return !std::empty(rng); })
         | std::views::transform([](auto&& rng) { return std::string_view(rng); });
 
-    auto width = static_cast<int64_t>(lines.front().size());
+    auto width = std::ssize(lines.front());
 
     auto to_index = [](auto&& t) -> int64_t { return static_cast<int64_t>(std::get<0>(t)); };
     auto all_dots = [](auto&& t) -> bool { return std::ranges::all_of(std::get<1>(t), [](char c) { return c == '.'; }); };
