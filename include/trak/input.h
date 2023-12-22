@@ -4,6 +4,7 @@
 #include <string>
 #include <fstream>
 #include <vector>
+#include <charconv>
 
 using i64 = int64_t;
 using i32 = int32_t;
