@@ -48,6 +48,17 @@ namespace trak {
         std::from_chars(begin, end, result);
         return result;
     }
+
+    template<typename T>
+    auto transpose(const std::vector<T>& grid) {
+        std::vector<std::string> transpose(grid.front().size(), std::string(grid.size(), '-'));
+        for (std::vector<int>::size_type i = 0; i < grid[0].size(); i++)
+            for (std::vector<int>::size_type j = 0; j < grid.size(); j++) {
+                transpose[i][j] = grid[j][i];
+
+        }
+        return transpose;
+    }
 }
 
 #endif //TRAK_INPUT_H
